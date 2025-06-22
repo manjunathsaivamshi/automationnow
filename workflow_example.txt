@@ -1,0 +1,94 @@
+name: YouTube Shorts Auto Upload
+
+on:
+  workflow_dispatch:
+    inputs:
+      video_title:
+        description: 'Video Title'
+        required: true
+        default: 'New YouTube Short'
+      video_description:
+        description: 'Video Description'
+        required: false
+        default: ''
+      video_tags:
+        description: 'Video Tags (comma-separated)'
+        required: false
+        default: 'shorts,youtube'
+      privacy_status:
+        description: 'Privacy Status'
+        required: true
+        default: 'public'
+        type: choice
+        options:
+        - public
+        - private
+        - unlisted
+  
+  # Optional: Schedule uploads
+  # schedule:
+  #   - cron: '0 12 * * *'  # Daily at 12 PM UTC
+
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install google-api-python-client google-auth-httplib2 google-auth-oauthlib
+    
+    - name: Create credentials file
+      run: |
+        echo '${{ secrets.YOUTUBE_CREDENTIALS }}' > credentials.json
+    
+    - name: Create token file
+      run: |
+        echo '${{ secrets.YOUTUBE_TOKEN }}' | base64 -d > token.pickle
+    
+    - name: Create config file
+      run: |
+        cat > config.json << EOF
+        {
+          "title": "${{ github.event.inputs.video_title || 'Automated YouTube Short' }}",
+          "description": "${{ github.event.inputs.video_description || 'Uploaded automatically via GitHub Actions' }}",
+          "tags": ["${{ github.event.inputs.video_tags || 'shorts,youtube' }}".split(",")]
+        }
+        EOF
+    
+    - name: List available videos
+      run: |
+        echo "Available video files:"
+        find . -name "*.mp4" -o -name "*.mov" -o -name "*.avi" -o -name "*.mkv" | head -10
+    
+    - name: Upload video to YouTube
+      run: |
+        # Find the first video file in the videos directory
+        VIDEO_FILE=$(find ./videos -name "*.mp4" -o -name "*.mov" -o -name "*.avi" -o -name "*.mkv" | head -1)
+        
+        if [ -z "$VIDEO_FILE" ]; then
+          echo "No video file found in ./videos directory"
+          exit 1
+        fi
+        
+        echo "Uploading: $VIDEO_FILE"
+        python youtube_uploader.py \
+          --video "$VIDEO_FILE" \
+          --title "${{ github.event.inputs.video_title || 'Automated YouTube Short' }}" \
+          --description "${{ github.event.inputs.video_description || 'Uploaded automatically' }}" \
+          --tags "${{ github.event.inputs.video_tags || 'shorts,youtube' }}" \
+          --privacy "${{ github.event.inputs.privacy_status || 'public' }}"
+    
+    - name: Clean up credentials
+      if: always()
+      run: |
+        rm -f credentials.json token.pickle config.json

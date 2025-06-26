@@ -181,9 +181,15 @@ def main():
         "https://youtube.com/@chriswillx",
         "http://www.youtube.com/@premathejournalist",
         "http://www.youtube.com/@jayshetty",  # Added missing comma
-        "http://www.youtube.com/@rajshamani",  # Added missing comma
         "http://www.youtube.com/@PurpleGoldMusic",  # Added missing comma
         "http://www.youtube.com/@InspirewithNeeraj",
+        "http://www.youtube.com/@AadhanTalkies",
+        "http://www.youtube.com/@Voiceofmogassala",
+        "http://www.youtube.com/@VenuKalyanlifeandbusinesscoach",
+        "http://www.youtube.com/@pmfentertainment",
+        "http://www.youtube.com/@ManamtvNewsOfficial",
+        "http://www.youtube.com/@TeluguConnects_"
+
         # Add more channel URLs here
         # "https://youtube.com/@anotherchannel",
         # "https://youtube.com/@yetanotherchannel",

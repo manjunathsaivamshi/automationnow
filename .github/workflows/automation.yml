@@ -42,6 +42,7 @@ jobs:
 
     - name: Install ffmpeg
       run: |
+        sudo apt update
         sudo apt install -y ffmpeg
 
     - name: Create token.pickle from secrets

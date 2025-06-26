@@ -125,7 +125,6 @@ def load_config(config_path='config.json'):
 
 def main():
     parser = argparse.ArgumentParser(description='Upload video to YouTube')
-    parser.add_argument('--video', required=True, help='Path to video file')
     parser.add_argument('--title', help='Video title')
     parser.add_argument('--description', help='Video description')
     parser.add_argument('--tags', help='Comma-separated tags')
@@ -152,7 +151,7 @@ def main():
         
         # Upload video
         video_id = uploader.upload_video(
-            video_path=args.video,
+            video_path='combined_youtube_short.mp4',
             title=title,
             description=description,
             tags=tags,
@@ -162,6 +161,20 @@ def main():
         
         if video_id:
             print("Upload completed successfully!")
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+
+            # List of filenames to delete
+            files_to_delete = ['combined_youtube_short.mp4']
+            for filename in files_to_delete:
+                file_path = os.path.join(script_dir, filename)
+                if os.path.isfile(file_path):
+                    try:
+                        os.remove(file_path)
+                        print(f"Deleted: {filename}")
+                    except Exception as e:
+                        print(f"Error deleting {filename}: {e}")
+                else:
+                    print(f"File not found: {filename}")
         else:
             print("Upload failed!")
             

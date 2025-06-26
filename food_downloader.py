@@ -131,7 +131,7 @@ class YouTubeShortsDownloader:
             print(f"Error downloading video: {str(e)}")
             return False
     
-    def download_random_short(self, channel_urls, output_filename="video_one"):
+    def download_random_short(self, channel_urls, output_filename="video_two"):
         """Main function to download exactly ONE random short efficiently"""
         print("Starting YouTube Shorts downloader...")
         print("Looking for a random short video...")
@@ -190,7 +190,7 @@ def main():
     downloader = YouTubeShortsDownloader()
     
     # Download a random short
-    downloader.download_random_short(channel_urls, "video_one")
+    downloader.download_random_short(channel_urls, "video_two")
 
 if __name__ == "__main__":
     main()

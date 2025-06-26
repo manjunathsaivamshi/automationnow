@@ -20,7 +20,7 @@ on:
 # Environment variables (configurable)
 env:
   PYTHON_VERSION: '3.9'
-  WAIT_TIME_MINUTES: 5
+  WAIT_TIME_MINUTES: 1
 
 jobs:
   run-scripts:

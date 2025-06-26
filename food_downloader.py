@@ -110,7 +110,7 @@ class YouTubeShortsDownloader:
         
         return None
     
-    def download_video(self, video_info, output_filename="video_one"):
+    def download_video(self, video_info, output_filename="video_two"):
         """Download a specific video"""
         ydl_opts = self.get_ydl_opts(for_download=True)
         ydl_opts['outtmpl'] = f'{output_filename}.%(ext)s'

@@ -1,0 +1,143 @@
+name: Python Scripts Automation
+
+# Configure when to run - 3 times daily
+on:
+  schedule:
+    # Run at 6:00 AM, 2:00 PM, and 10:00 PM UTC daily
+    - cron: '0 6 * * *'   # 6:00 AM UTC
+    - cron: '0 14 * * *'  # 2:00 PM UTC  
+    - cron: '0 22 * * *'  # 10:00 PM UTC
+  
+  # Allow manual triggering for testing
+  workflow_dispatch:
+    inputs:
+      run_count:
+        description: 'Number of times to run the sequence'
+        required: false
+        default: '1'
+        type: string
+
+# Environment variables (configurable)
+env:
+  PYTHON_VERSION: '3.9'
+  WAIT_TIME_MINUTES: 5
+
+jobs:
+  run-scripts:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+    
+    - name: Create token.pickle from secrets
+      run: |
+        echo "${{ secrets.TOKEN_PICKLE_BASE64 }}" | base64 --decode > token.pickle
+    
+    - name: Run Script Sequence
+      run: |
+        # Function to run a script with error handling
+        run_script() {
+          local script_name=$1
+          echo "🚀 Running $script_name at $(date)"
+          
+          if python "$script_name"; then
+            echo "✅ $script_name completed successfully"
+            return 0
+          else
+            echo "❌ $script_name failed with exit code $?"
+            return 1
+          fi
+        }
+        
+        # Function to wait with countdown
+        wait_with_countdown() {
+          local minutes=$1
+          local seconds=$((minutes * 60))
+          
+          echo "⏳ Waiting for $minutes minutes..."
+          
+          while [ $seconds -gt 0 ]; do
+            if [ $((seconds % 60)) -eq 0 ]; then
+              echo "⏰ $((seconds / 60)) minutes remaining..."
+            fi
+            sleep 60
+            seconds=$((seconds - 60))
+          done
+          
+          echo "✅ Wait completed!"
+        }
+        
+        # Main execution sequence
+        echo "🎯 Starting Python Scripts Automation at $(date)"
+        echo "📋 Execution Plan:"
+        echo "  1. downloader.py"
+        echo "  2. Wait ${{ env.WAIT_TIME_MINUTES }} minutes"
+        echo "  3. food_downloader.py"
+        echo "  4. Wait ${{ env.WAIT_TIME_MINUTES }} minutes"
+        echo "  5. video_combiner.py"
+        echo "  6. Wait ${{ env.WAIT_TIME_MINUTES }} minutes"
+        echo "  7. uploader.py"
+        echo ""
+        
+        # Step 1: Run downloader.py
+        if ! run_script "downloader.py"; then
+          echo "🛑 Stopping execution due to downloader.py failure"
+          exit 1
+        fi
+        
+        # Wait 3 minutes after downloader.py
+        wait_with_countdown 3
+        
+        # Step 2: Run food_downloader.py
+        if ! run_script "food_downloader.py"; then
+          echo "🛑 Stopping execution due to food_downloader.py failure"
+          exit 1
+        fi
+        
+        # Wait 7 minutes after food_downloader.py
+        wait_with_countdown 7
+        
+        # Step 3: Run video_combiner.py
+        if ! run_script "video_combiner.py"; then
+          echo "🛑 Stopping execution due to video_combiner.py failure"
+          exit 1
+        fi
+        
+        # Wait 5 minutes after video_combiner.py
+        wait_with_countdown 5
+        
+        # Step 4: Run uploader.py (final step)
+        if ! run_script "uploader.py"; then
+          echo "🛑 uploader.py failed"
+          exit 1
+        fi
+        
+        echo "🎉 All scripts completed successfully at $(date)"
+    
+    - name: Cleanup sensitive files
+      if: always()
+      run: |
+        # Remove token.pickle file for security
+        rm -f token.pickle
+        echo "🧹 Cleanup completed"
+    
+    - name: Upload logs (optional)
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: execution-logs-${{ github.run_number }}
+        path: |
+          *.log
+          logs/
+        retention-days: 7

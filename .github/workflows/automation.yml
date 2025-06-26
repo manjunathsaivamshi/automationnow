@@ -101,7 +101,7 @@ jobs:
         fi
         
         # Wait 3 minutes after downloader.py
-        wait_with_countdown 3
+        wait_with_countdown 1
         
         # Step 2: Run food_downloader.py
         if ! run_script "food_downloader.py"; then
@@ -110,7 +110,7 @@ jobs:
         fi
         
         # Wait 7 minutes after food_downloader.py
-        wait_with_countdown 7
+        wait_with_countdown 1
         
         # Step 3: Run video_combiner.py
         if ! run_script "video_combiner.py"; then
@@ -119,7 +119,7 @@ jobs:
         fi
         
         # Wait 5 minutes after video_combiner.py
-        wait_with_countdown 5
+        wait_with_countdown 1
         
         # Step 4: Run uploader.py (final step)
         if ! run_script "uploader.py"; then

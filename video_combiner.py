@@ -215,6 +215,20 @@ def main():
     if success:
         print(f"\n🎉 Success! Your YouTube Short is ready: {args.output}")
         print("⚡ Processing was much faster thanks to FFmpeg!")
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+
+        # List of filenames to delete
+        files_to_delete = ['video_one.mp4', 'video_two.mp4']
+        for filename in files_to_delete:
+            file_path = os.path.join(script_dir, filename)
+            if os.path.isfile(file_path):
+                try:
+                    os.remove(file_path)
+                    print(f"Deleted: {filename}")
+                except Exception as e:
+                    print(f"Error deleting {filename}: {e}")
+            else:
+                print(f"File not found: {filename}")
     else:
         print("\n💥 Failed to create the combined video. Please check the error messages above.")
 

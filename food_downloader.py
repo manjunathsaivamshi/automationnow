@@ -92,7 +92,7 @@ class YouTubeShortsDownloader:
         
         return None
     
-    def download_video(self, video_info, output_filename="video_one"):
+    def download_video(self, video_info, output_filename="video_two"):
         """Download a specific video"""
         ydl_opts = {
             'format': 'best[height<=720]',  # Download best quality up to 720p
@@ -157,12 +157,9 @@ class YouTubeShortsDownloader:
 def main():
     # List of YouTube channel URLs
     channel_urls = [
-        "https://youtube.com/@chriswillx",
-        "http://www.youtube.com/@premathejournalist",
-        "http://www.youtube.com/@jayshetty"
-        "http://www.youtube.com/@rajshamani"
-        "http://www.youtube.com/@PurpleGoldMusic"
-        "http://www.youtube.com/@InspirewithNeeraj"
+        "https://www.youtube.com/@ZachChoi",
+        "https://youtube.com/@asmrkitchenfood",
+        "https://youtube.com/@cookwithpramod"
         # Add more channel URLs here
         # "https://youtube.com/@anotherchannel",
         # "https://youtube.com/@yetanotherchannel",

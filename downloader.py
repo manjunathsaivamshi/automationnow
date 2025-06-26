@@ -24,14 +24,34 @@ class YouTubeShortsDownloader:
         with open(self.downloaded_videos_file, 'w') as f:
             json.dump(self.downloaded_videos, f)
     
+    def get_ydl_opts(self, for_download=False):
+        """Get yt-dlp options with cookies support"""
+        base_opts = {
+            'quiet': False,
+            'no_warnings': False,
+        }
+        
+        # Add cookies if available
+        if os.path.exists('cookies.txt'):
+            base_opts['cookiefile'] = 'cookies.txt'
+            print("Using cookies.txt for authentication")
+        
+        if for_download:
+            base_opts.update({
+                'format': 'best[height<=720]',
+                'outtmpl': '%(title)s.%(ext)s',
+            })
+        else:
+            base_opts.update({
+                'extract_flat': True,
+                'playlistend': 100,
+            })
+        
+        return base_opts
+    
     def get_random_short_from_channel(self, channel_url, max_attempts=20):
         """Get a random short from a channel without fetching all videos"""
-        ydl_opts = {
-            'quiet': False,  # Enable output to see what's happening
-            'no_warnings': False,  # Show warnings for debugging
-            'extract_flat': True,
-            'playlistend': 100,  # Get more videos to increase chances
-        }
+        ydl_opts = self.get_ydl_opts(for_download=False)
         
         try:
             # Clean the channel URL and add /shorts to get only shorts
@@ -73,8 +93,6 @@ class YouTubeShortsDownloader:
             print(f"Error getting random short from {channel_url}: {str(e)}")
             return None
     
-
-    
     def find_random_short(self, channel_urls, max_attempts=10):
         """Find a random short from any of the channels"""
         for attempt in range(max_attempts):
@@ -94,11 +112,8 @@ class YouTubeShortsDownloader:
     
     def download_video(self, video_info, output_filename="video_one"):
         """Download a specific video"""
-        ydl_opts = {
-            'format': 'best[height<=720]',  # Download best quality up to 720p
-            'outtmpl': f'{output_filename}.%(ext)s',
-            'no_warnings': True,
-        }
+        ydl_opts = self.get_ydl_opts(for_download=True)
+        ydl_opts['outtmpl'] = f'{output_filename}.%(ext)s'
         
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -120,6 +135,12 @@ class YouTubeShortsDownloader:
         """Main function to download exactly ONE random short efficiently"""
         print("Starting YouTube Shorts downloader...")
         print("Looking for a random short video...")
+        
+        # Check if cookies are available
+        if os.path.exists('cookies.txt'):
+            print("✅ Using cookies for authentication")
+        else:
+            print("⚠️  No cookies found - may encounter bot detection")
         
         # Find a random short without fetching all videos
         selected_short = self.find_random_short(channel_urls)
@@ -155,14 +176,14 @@ class YouTubeShortsDownloader:
         return success
 
 def main():
-    # List of YouTube channel URLs
+    # List of YouTube channel URLs - Fixed missing commas
     channel_urls = [
         "https://youtube.com/@chriswillx",
         "http://www.youtube.com/@premathejournalist",
-        "http://www.youtube.com/@jayshetty"
-        "http://www.youtube.com/@rajshamani"
-        "http://www.youtube.com/@PurpleGoldMusic"
-        "http://www.youtube.com/@InspirewithNeeraj"
+        "http://www.youtube.com/@jayshetty",  # Added missing comma
+        "http://www.youtube.com/@rajshamani",  # Added missing comma
+        "http://www.youtube.com/@PurpleGoldMusic",  # Added missing comma
+        "http://www.youtube.com/@InspirewithNeeraj",
         # Add more channel URLs here
         # "https://youtube.com/@anotherchannel",
         # "https://youtube.com/@yetanotherchannel",

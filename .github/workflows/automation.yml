@@ -43,7 +43,11 @@ jobs:
     - name: Create token.pickle from secrets
       run: |
         echo "${{ secrets.TOKEN_PICKLE_BASE64 }}" | base64 --decode > token.pickle
-    
+
+    - name: Create cookies.txt from secrets
+      run: |
+        echo "${{ secrets.YOUTUBE_COOKIES }}" > cookies.txt
+
     - name: Run Script Sequence
       run: |
         # Function to run a script with error handling
@@ -130,6 +134,7 @@ jobs:
       run: |
         # Remove token.pickle file for security
         rm -f token.pickle
+        rm -f cookies.txt
         echo "🧹 Cleanup completed"
     
     - name: Upload logs (optional)

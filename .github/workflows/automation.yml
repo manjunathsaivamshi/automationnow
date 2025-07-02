@@ -104,7 +104,7 @@ jobs:
         fi
         
         # Wait 3 minutes after downloader.py
-        wait_with_countdown 1
+        #wait_with_countdown 1
         
         # Step 2: Run food_downloader.py
         if ! run_script "food_downloader.py"; then
@@ -113,7 +113,7 @@ jobs:
         fi
         
         # Wait 7 minutes after food_downloader.py
-        wait_with_countdown 1
+        #wait_with_countdown 1
         
         # Step 3: Run video_combiner.py
         if ! run_script "video_combiner.py"; then
@@ -122,16 +122,34 @@ jobs:
         fi
         
         # Wait 5 minutes after video_combiner.py
-        wait_with_countdown 1
+        #wait_with_countdown 1
         
         # Step 4: Run uploader.py (final step)
         if ! run_script "uploader.py"; then
           echo "🛑 uploader.py failed"
           exit 1
         fi
+
+        if [ -f "token.pickle" ]; then
+          NEW_TOKEN=$(base64 -w 0 token.pickle)
+          echo "NEW_TOKEN_BASE64=$NEW_TOKEN" >> $GITHUB_OUTPUT
+        fi
         
         echo "🎉 All scripts completed successfully at $(date)"
-    
+   
+    - name: Update GitHub Secret
+      if: steps.upload.outputs.NEW_TOKEN_BASE64 != ''
+      uses: actions/github-script@v6
+      with:
+      github-token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+      script: |
+              await github.rest.actions.createOrUpdateRepoSecret({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              secret_name: 'TOKEN_PICKLE_BASE64',
+              encrypted_value: '${{ steps.upload.outputs.NEW_TOKEN_BASE64 }}'
+              });      
+
     - name: Cleanup sensitive files
       if: always()
       run: |

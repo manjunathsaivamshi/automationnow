@@ -52,6 +52,7 @@ jobs:
         echo "${{ secrets.YOUTUBE_COOKIES }}" > cookies.txt
 
     - name: Run Script Sequence
+      id: run-scripts
       run: |
         # Function to run a script with error handling
         run_script() {
@@ -138,17 +139,17 @@ jobs:
         echo "🎉 All scripts completed successfully at $(date)"
    
     - name: Update GitHub Secret
-      if: steps.upload.outputs.NEW_TOKEN_BASE64 != ''
+      if: steps.run-scripts.outputs.NEW_TOKEN_BASE64 != ''
       uses: actions/github-script@v6
       with:
-      github-token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
-      script: |
-              await github.rest.actions.createOrUpdateRepoSecret({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              secret_name: 'TOKEN_PICKLE_BASE64',
-              encrypted_value: '${{ steps.upload.outputs.NEW_TOKEN_BASE64 }}'
-              });      
+        github-token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+        script: |
+          await github.rest.actions.createOrUpdateRepoSecret({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            secret_name: 'TOKEN_PICKLE_BASE64',
+            encrypted_value: '${{ steps.run-scripts.outputs.NEW_TOKEN_BASE64 }}'
+          });
 
     - name: Cleanup sensitive files
       if: always()

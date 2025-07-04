@@ -140,35 +140,11 @@ jobs:
    
     - name: Update GitHub Secret
       if: steps.run-scripts.outputs.NEW_TOKEN_BASE64 != ''
-      uses: actions/github-script@v6
+      uses: gliech/create-github-secret-action@v1
       with:
-        github-token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
-        script: |
-          const sodium = require('libsodium-wrappers');
-          await sodium.ready;
-          
-          // Get the repository public key
-          const { data: publicKey } = await github.rest.actions.getRepoPublicKey({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-          });
-          
-          // Encrypt the secret value
-          const secretValue = '${{ steps.run-scripts.outputs.NEW_TOKEN_BASE64 }}';
-          const messageBytes = Buffer.from(secretValue);
-          const keyBytes = Buffer.from(publicKey.key, 'base64');
-          
-          const encryptedBytes = sodium.crypto_box_seal(messageBytes, keyBytes);
-          const encryptedValue = Buffer.from(encryptedBytes).toString('base64');
-          
-          // Create or update the secret
-          await github.rest.actions.createOrUpdateRepoSecret({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            secret_name: 'TOKEN_PICKLE_BASE64',
-            encrypted_value: encryptedValue,
-            key_id: publicKey.key_id
-          });      
+        name: TOKEN_PICKLE_BASE64
+        value: ${{ steps.run-scripts.outputs.NEW_TOKEN_BASE64 }}
+        pa_token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}      
 
     - name: Cleanup sensitive files
       if: always()

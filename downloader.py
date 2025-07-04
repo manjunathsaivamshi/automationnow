@@ -181,7 +181,6 @@ def main():
         "https://youtube.com/@chriswillx",
         "http://www.youtube.com/@premathejournalist",
         "http://www.youtube.com/@jayshetty",  # Added missing comma
-        "http://www.youtube.com/@PurpleGoldMusic",  # Added missing comma
         "http://www.youtube.com/@InspirewithNeeraj",
         "http://www.youtube.com/@AadhanTalkies",
         "http://www.youtube.com/@Voiceofmogassala",

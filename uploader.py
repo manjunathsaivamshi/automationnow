@@ -17,29 +17,67 @@ class YouTubeUploader:
         self.youtube = None
         
     def authenticate(self):
-        """Authenticate and build YouTube service"""
+        """Authenticate and build YouTube service with improved error handling"""
         creds = None
         
         # Load existing token
         if os.path.exists(self.token_file):
-            with open(self.token_file, 'rb') as token:
-                creds = pickle.load(token)
+            try:
+                with open(self.token_file, 'rb') as token:
+                    creds = pickle.load(token)
+                print("Loaded existing credentials")
+            except Exception as e:
+                print(f"Error loading token file: {e}")
+                creds = None
         
-        # If there are no valid credentials, get new ones
+        # Check if credentials need refresh or are invalid
         if not creds or not creds.valid:
             if creds and creds.expired and creds.refresh_token:
-                creds.refresh(Request())
-            else:
-                flow = InstalledAppFlow.from_client_secrets_file(
-                    self.credentials_file, self.scopes)
-                creds = flow.run_local_server(port=0)
+                try:
+                    print("Attempting to refresh expired credentials...")
+                    creds.refresh(Request())
+                    print("Credentials refreshed successfully")
+                    
+                    # Save refreshed credentials
+                    with open(self.token_file, 'wb') as token:
+                        pickle.dump(creds, token)
+                    print("Refreshed credentials saved")
+                    
+                except Exception as e:
+                    print(f"Error refreshing credentials: {e}")
+                    print("Will need to re-authenticate...")
+                    creds = None
             
-            # Save credentials for next run
-            with open(self.token_file, 'wb') as token:
-                pickle.dump(creds, token)
+            # If refresh failed or no refresh token, need new authentication
+            if not creds or not creds.valid:
+                if not os.path.exists(self.credentials_file):
+                    raise Exception(f"Credentials file {self.credentials_file} not found. Please ensure it's available.")
+                
+                print("Starting new authentication flow...")
+                try:
+                    flow = InstalledAppFlow.from_client_secrets_file(
+                        self.credentials_file, self.scopes)
+                    creds = flow.run_local_server(port=0)
+                    print("New authentication completed")
+                except Exception as e:
+                    raise Exception(f"Authentication failed: {e}")
+                
+                # Save new credentials
+                try:
+                    with open(self.token_file, 'wb') as token:
+                        pickle.dump(creds, token)
+                    print("New credentials saved")
+                except Exception as e:
+                    print(f"Warning: Could not save credentials: {e}")
+        else:
+            print("Using valid existing credentials")
         
-        self.youtube = build('youtube', 'v3', credentials=creds)
-        return True
+        try:
+            self.youtube = build('youtube', 'v3', credentials=creds)
+            print("YouTube API service built successfully")
+            return True
+        except Exception as e:
+            raise Exception(f"Failed to build YouTube service: {e}")
     
     def upload_video(self, video_path, title, description="", tags=None, category_id="22", 
                     privacy_status="public", thumbnail_path=None):
@@ -47,8 +85,15 @@ class YouTubeUploader:
         if not self.youtube:
             raise Exception("YouTube service not authenticated")
         
+        if not os.path.exists(video_path):
+            raise Exception(f"Video file not found: {video_path}")
+        
         if tags is None:
             tags = ["shorts", "youtube", "video"]
+        
+        print(f"Uploading video: {video_path}")
+        print(f"Title: {title}")
+        print(f"Privacy: {privacy_status}")
         
         # Video metadata
         body = {
@@ -82,9 +127,18 @@ class YouTubeUploader:
             
             response = None
             while response is None:
-                status, response = request.next_chunk()
-                if status:
-                    print(f"Upload progress: {int(status.progress() * 100)}%")
+                try:
+                    status, response = request.next_chunk()
+                    if status:
+                        progress = int(status.progress() * 100)
+                        print(f"Upload progress: {progress}%")
+                except HttpError as e:
+                    if e.resp.status in [500, 502, 503, 504]:
+                        # Resumable upload - retry
+                        print(f"Resumable error {e.resp.status}, retrying...")
+                        continue
+                    else:
+                        raise
             
             video_id = response['id']
             print(f"Video uploaded successfully! Video ID: {video_id}")
@@ -98,6 +152,10 @@ class YouTubeUploader:
             
         except HttpError as e:
             print(f"An HTTP error occurred: {e}")
+            if e.resp.status == 401:
+                print("Authentication error - token may have expired")
+            elif e.resp.status == 403:
+                print("Permission denied - check YouTube API quotas and permissions")
             return None
         except Exception as e:
             print(f"An error occurred: {e}")
@@ -106,6 +164,7 @@ class YouTubeUploader:
     def upload_thumbnail(self, video_id, thumbnail_path):
         """Upload custom thumbnail"""
         try:
+            print(f"Uploading thumbnail: {thumbnail_path}")
             self.youtube.thumbnails().set(
                 videoId=video_id,
                 media_body=MediaFileUpload(thumbnail_path)
@@ -146,6 +205,8 @@ def main():
     uploader = YouTubeUploader()
     
     try:
+        print("Starting YouTube upload process...")
+        
         # Authenticate
         uploader.authenticate()
         
@@ -177,9 +238,13 @@ def main():
                     print(f"File not found: {filename}")
         else:
             print("Upload failed!")
+            return 1
             
     except Exception as e:
         print(f"Error: {e}")
+        return 1
+    
+    return 0
 
 if __name__ == "__main__":
-    main()
+    exit(main())

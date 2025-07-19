@@ -43,9 +43,18 @@ jobs:
         sudo apt update
         sudo apt install -y ffmpeg
 
-    - name: Create token.pickle from secrets
+    - name: Create credentials and token files from secrets
       run: |
-        echo "${{ secrets.TOKEN_PICKLE_BASE64 }}" | base64 --decode > token.pickle
+        # Create credentials.json from secret
+        echo "${{ secrets.GOOGLE_CREDENTIALS_JSON }}" > credentials.json
+        
+        # Create token.pickle from secret (if exists)
+        if [ ! -z "${{ secrets.TOKEN_PICKLE_BASE64 }}" ]; then
+          echo "${{ secrets.TOKEN_PICKLE_BASE64 }}" | base64 --decode > token.pickle
+          echo "✅ Token file created from secret"
+        else
+          echo "⚠️  No existing token found in secrets"
+        fi
 
     - name: Create cookies.txt from secrets
       run: |
@@ -104,17 +113,11 @@ jobs:
           exit 1
         fi
         
-        # Wait 3 minutes after downloader.py
-        #wait_with_countdown 1
-        
         # Step 2: Run food_downloader.py
         if ! run_script "food_downloader.py"; then
           echo "🛑 Stopping execution due to food_downloader.py failure"
           exit 1
         fi
-        
-        # Wait 7 minutes after food_downloader.py
-        #wait_with_countdown 1
         
         # Step 3: Run video_combiner.py
         if ! run_script "video_combiner.py"; then
@@ -122,36 +125,39 @@ jobs:
           exit 1
         fi
         
-        # Wait 5 minutes after video_combiner.py
-        #wait_with_countdown 1
-        
         # Step 4: Run uploader.py (final step)
         if ! run_script "uploader.py"; then
           echo "🛑 uploader.py failed"
           exit 1
         fi
 
+        # Check if token was updated and save it
         if [ -f "token.pickle" ]; then
           NEW_TOKEN=$(base64 -w 0 token.pickle)
           echo "NEW_TOKEN_BASE64=$NEW_TOKEN" >> $GITHUB_OUTPUT
+          echo "✅ Token updated and ready for saving to secrets"
+        else
+          echo "⚠️  No token file found after execution"
         fi
         
         echo "🎉 All scripts completed successfully at $(date)"
    
-    - name: Update GitHub Secret
+    - name: Update GitHub Secret with new token
       if: steps.run-scripts.outputs.NEW_TOKEN_BASE64 != ''
       uses: gliech/create-github-secret-action@v1
       with:
         name: TOKEN_PICKLE_BASE64
         value: ${{ steps.run-scripts.outputs.NEW_TOKEN_BASE64 }}
-        pa_token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}      
+        pa_token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+      continue-on-error: true
 
     - name: Cleanup sensitive files
       if: always()
       run: |
-        # Remove token.pickle file for security
+        # Remove sensitive files for security
         rm -f token.pickle
         rm -f cookies.txt
+        rm -f credentials.json
         echo "🧹 Cleanup completed"
     
     - name: Upload logs (optional)

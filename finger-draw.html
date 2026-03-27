@@ -1,0 +1,907 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FingerTrace — Draw with your hand</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Bebas+Neue&display=swap');
+
+  :root {
+    --bg: #0a0a0f;
+    --panel: #111118;
+    --border: #2a2a3a;
+    --accent: #00ffcc;
+    --text: #e0e0f0;
+    --muted: #555570;
+    --draw-color: #00ffcc;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* HEADER */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 20px;
+    border-bottom: 1px solid var(--border);
+    background: var(--panel);
+    z-index: 10;
+    flex-shrink: 0;
+  }
+
+  .logo {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.8rem;
+    letter-spacing: 3px;
+    color: var(--accent);
+    text-shadow: 0 0 20px var(--accent);
+  }
+
+  .logo span { color: var(--text); }
+
+  .status-pill {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 14px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    font-size: 0.7rem;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  .status-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--muted);
+    transition: background 0.3s, box-shadow 0.3s;
+  }
+
+  .status-dot.active {
+    background: #00ff88;
+    box-shadow: 0 0 8px #00ff88;
+  }
+
+  /* TOOLBAR */
+  .toolbar {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 10px 20px;
+    border-bottom: 1px solid var(--border);
+    background: var(--panel);
+    flex-wrap: wrap;
+    flex-shrink: 0;
+  }
+
+  .tool-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .tool-label {
+    font-size: 0.65rem;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+
+  /* Color picker wrapper */
+  .color-wrap {
+    position: relative;
+    width: 36px; height: 36px;
+    border-radius: 6px;
+    border: 2px solid var(--border);
+    overflow: hidden;
+    cursor: pointer;
+    transition: border-color 0.2s, transform 0.15s;
+  }
+
+  .color-wrap:hover {
+    border-color: var(--accent);
+    transform: scale(1.08);
+  }
+
+  .color-wrap input[type="color"] {
+    position: absolute;
+    inset: -6px;
+    width: calc(100% + 12px);
+    height: calc(100% + 12px);
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    background: none;
+  }
+
+  /* Brush size slider */
+  .slider-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  input[type="range"] {
+    -webkit-appearance: none;
+    width: 90px;
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    outline: none;
+  }
+
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 8px var(--accent);
+    cursor: pointer;
+    transition: transform 0.15s;
+  }
+
+  input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.3); }
+
+  .size-preview {
+    width: 24px; height: 24px;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  .size-dot {
+    border-radius: 50%;
+    background: var(--draw-color);
+    transition: width 0.2s, height 0.2s;
+  }
+
+  /* Buttons */
+  .btn {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    padding: 7px 14px;
+    border-radius: 5px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text);
+    cursor: pointer;
+    transition: border-color 0.2s, color 0.2s, background 0.2s, box-shadow 0.2s;
+    white-space: nowrap;
+  }
+
+  .btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+    box-shadow: 0 0 10px rgba(0,255,204,0.15);
+  }
+
+  .btn.danger:hover {
+    border-color: #ff4466;
+    color: #ff4466;
+    box-shadow: 0 0 10px rgba(255,68,102,0.15);
+  }
+
+  .btn.primary {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  /* Divider */
+  .divider {
+    width: 1px; height: 30px;
+    background: var(--border);
+    flex-shrink: 0;
+  }
+
+  /* MAIN AREA */
+  .main {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* Background canvas (user-selectable bg color) */
+  #bgCanvas {
+    position: absolute;
+    inset: 0;
+    width: 100%; height: 100%;
+  }
+
+  /* Drawing canvas */
+  #drawCanvas {
+    position: absolute;
+    inset: 0;
+    width: 100%; height: 100%;
+  }
+
+  /* Video (hidden, used for ML) */
+  #video {
+    position: absolute;
+    bottom: 16px; right: 16px;
+    width: 180px; height: 135px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    object-fit: cover;
+    transform: scaleX(-1);
+    opacity: 0.85;
+    z-index: 5;
+    display: none;
+  }
+
+  #video.visible { display: block; }
+
+  /* Landmark overlay */
+  #landmarkCanvas {
+    position: absolute;
+    bottom: 16px; right: 16px;
+    width: 180px; height: 135px;
+    border-radius: 10px;
+    z-index: 6;
+    pointer-events: none;
+    display: none;
+  }
+
+  #landmarkCanvas.visible { display: block; }
+
+  /* Cursor dot */
+  #cursorDot {
+    position: absolute;
+    width: 20px; height: 20px;
+    border-radius: 50%;
+    border: 2px solid var(--accent);
+    box-shadow: 0 0 14px var(--accent), 0 0 30px rgba(0,255,204,0.3);
+    pointer-events: none;
+    transform: translate(-50%, -50%);
+    transition: opacity 0.3s;
+    opacity: 0;
+    z-index: 8;
+  }
+
+  /* Toast */
+  #toast {
+    position: absolute;
+    top: 16px; left: 50%;
+    transform: translateX(-50%) translateY(-60px);
+    background: var(--panel);
+    border: 1px solid var(--border);
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-size: 0.75rem;
+    letter-spacing: 1px;
+    color: var(--text);
+    z-index: 20;
+    transition: transform 0.35s cubic-bezier(0.34,1.56,0.64,1), opacity 0.3s;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  #toast.show {
+    transform: translateX(-50%) translateY(0);
+    opacity: 1;
+  }
+
+  /* Loading overlay */
+  #loadingOverlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(10,10,15,0.92);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    z-index: 30;
+    transition: opacity 0.5s;
+  }
+
+  #loadingOverlay.hidden { opacity: 0; pointer-events: none; }
+
+  .spinner {
+    width: 44px; height: 44px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .loading-text {
+    font-size: 0.75rem;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  /* Instructions overlay */
+  #instructions {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    z-index: 4;
+    pointer-events: none;
+    transition: opacity 0.5s;
+  }
+
+  #instructions.hidden { opacity: 0; }
+
+  .inst-icon {
+    font-size: 3rem;
+    margin-bottom: 8px;
+    filter: drop-shadow(0 0 20px rgba(0,255,204,0.4));
+  }
+
+  .inst-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 2rem;
+    letter-spacing: 6px;
+    color: var(--accent);
+    text-shadow: 0 0 20px var(--accent);
+  }
+
+  .inst-sub {
+    font-size: 0.75rem;
+    letter-spacing: 2px;
+    color: var(--muted);
+    text-transform: uppercase;
+    text-align: center;
+    max-width: 400px;
+    line-height: 2;
+  }
+
+  .inst-tip {
+    margin-top: 8px;
+    font-size: 0.68rem;
+    color: #333350;
+    letter-spacing: 1px;
+  }
+
+  /* Drawing mode indicator */
+  .mode-badge {
+    position: absolute;
+    top: 12px; left: 12px;
+    z-index: 8;
+    padding: 4px 12px;
+    border-radius: 999px;
+    font-size: 0.62rem;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    border: 1px solid var(--border);
+    background: var(--panel);
+    opacity: 0;
+    transition: opacity 0.3s;
+    pointer-events: none;
+  }
+
+  .mode-badge.drawing {
+    border-color: var(--accent);
+    color: var(--accent);
+    opacity: 1;
+    box-shadow: 0 0 12px rgba(0,255,204,0.2);
+  }
+
+  .mode-badge.paused {
+    border-color: #ff6644;
+    color: #ff6644;
+    opacity: 1;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Finger<span>Trace</span></div>
+  <div class="status-pill">
+    <div class="status-dot" id="statusDot"></div>
+    <span id="statusText">CAMERA OFF</span>
+  </div>
+</header>
+
+<div class="toolbar">
+  <div class="tool-group">
+    <span class="tool-label">Camera</span>
+    <button class="btn primary" id="startBtn" onclick="startCamera()">▶ Start</button>
+    <button class="btn" id="stopBtn" onclick="stopCamera()" style="display:none">■ Stop</button>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="tool-group">
+    <span class="tool-label">Draw Color</span>
+    <div class="color-wrap" title="Pick draw color">
+      <input type="color" id="drawColorPicker" value="#00ffcc" oninput="updateDrawColor(this.value)">
+    </div>
+  </div>
+
+  <div class="tool-group">
+    <span class="tool-label">BG Color</span>
+    <div class="color-wrap" title="Pick background color">
+      <input type="color" id="bgColorPicker" value="#0a0a0f" oninput="updateBgColor(this.value)">
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="tool-group slider-wrap">
+    <span class="tool-label">Size</span>
+    <input type="range" id="brushSize" min="2" max="40" value="6" oninput="updateBrushSize(this.value)">
+    <div class="size-preview">
+      <div class="size-dot" id="sizeDot" style="width:6px;height:6px;background:var(--draw-color)"></div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="tool-group">
+    <span class="tool-label">Opacity</span>
+    <input type="range" id="brushOpacity" min="10" max="100" value="90" style="width:70px"
+           oninput="brushOpacityVal = this.value/100">
+  </div>
+
+  <div class="divider"></div>
+
+  <button class="btn" onclick="togglePreview()">👁 Preview</button>
+  <button class="btn danger" onclick="clearCanvas()">✕ Clear</button>
+  <button class="btn" onclick="saveCanvas()">↓ Save</button>
+</div>
+
+<div class="main" id="mainArea">
+  <canvas id="bgCanvas"></canvas>
+  <canvas id="drawCanvas"></canvas>
+
+  <video id="video" playsinline autoplay muted></video>
+  <canvas id="landmarkCanvas"></canvas>
+
+  <div id="cursorDot"></div>
+
+  <div class="mode-badge" id="modeBadge">● Drawing</div>
+
+  <div id="instructions">
+    <div class="inst-icon">✋</div>
+    <div class="inst-title">FINGERTRACE</div>
+    <div class="inst-sub">
+      Point your <strong style="color:var(--accent)">index finger</strong> while keeping other fingers curled<br>
+      Raise middle/ring fingers to pause · Pinch to lift the pen
+    </div>
+    <div class="inst-tip">Click ▶ Start to begin</div>
+  </div>
+
+  <div id="loadingOverlay" class="hidden">
+    <div class="spinner"></div>
+    <div class="loading-text" id="loadingText">Loading hand model…</div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<!-- MediaPipe Hands via CDN -->
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+
+<script>
+// ─── STATE ────────────────────────────────────────────────────────────────────
+let isRunning = false;
+let isDrawing = false;
+let lastX = null, lastY = null;
+let drawColor = '#00ffcc';
+let bgColor = '#0a0a0f';
+let brushSize = 6;
+let brushOpacityVal = 0.9;
+let showPreview = false;
+
+// Smoothing buffers
+const SMOOTH_N = 5;
+const xBuf = [], yBuf = [];
+function smoothedPos(rawX, rawY) {
+  xBuf.push(rawX); yBuf.push(rawY);
+  if (xBuf.length > SMOOTH_N) { xBuf.shift(); yBuf.shift(); }
+  const sx = xBuf.reduce((a,b)=>a+b,0)/xBuf.length;
+  const sy = yBuf.reduce((a,b)=>a+b,0)/yBuf.length;
+  return [sx, sy];
+}
+
+// Gesture debounce — require N consecutive frames before state change
+const DEBOUNCE_FRAMES = 4;
+let drawFrameCount = 0;
+let noDrawFrameCount = 0;
+let confirmedDrawing = false; // the "real" drawing state after debounce
+
+let hands = null;
+let camera = null;
+let stream = null;
+
+// ─── CANVAS SETUP ─────────────────────────────────────────────────────────────
+const mainArea = document.getElementById('mainArea');
+const bgCanvas = document.getElementById('bgCanvas');
+const drawCanvas = document.getElementById('drawCanvas');
+const bgCtx = bgCanvas.getContext('2d');
+const drawCtx = drawCanvas.getContext('2d');
+const video = document.getElementById('video');
+const landmarkCanvas = document.getElementById('landmarkCanvas');
+const landmarkCtx = landmarkCanvas.getContext('2d');
+const cursorDot = document.getElementById('cursorDot');
+const modeBadge = document.getElementById('modeBadge');
+
+function resizeCanvases() {
+  const w = mainArea.offsetWidth;
+  const h = mainArea.offsetHeight;
+
+  // Preserve drawing
+  const imgData = drawCtx.getImageData(0, 0, drawCanvas.width, drawCanvas.height);
+
+  bgCanvas.width = drawCanvas.width = w;
+  bgCanvas.height = drawCanvas.height = h;
+
+  fillBackground();
+  drawCtx.putImageData(imgData, 0, 0);
+}
+
+function fillBackground() {
+  bgCtx.fillStyle = bgColor;
+  bgCtx.fillRect(0, 0, bgCanvas.width, bgCanvas.height);
+}
+
+window.addEventListener('resize', resizeCanvases);
+resizeCanvases();
+
+// ─── COLOR / BRUSH ────────────────────────────────────────────────────────────
+function updateDrawColor(val) {
+  drawColor = val;
+  document.documentElement.style.setProperty('--draw-color', val);
+  document.getElementById('sizeDot').style.background = val;
+  cursorDot.style.borderColor = val;
+  cursorDot.style.boxShadow = `0 0 14px ${val}, 0 0 30px ${val}44`;
+}
+
+function updateBgColor(val) {
+  bgColor = val;
+  fillBackground();
+}
+
+function updateBrushSize(val) {
+  brushSize = parseInt(val);
+  const dot = document.getElementById('sizeDot');
+  dot.style.width = val + 'px';
+  dot.style.height = val + 'px';
+}
+
+// ─── DRAWING LOGIC ────────────────────────────────────────────────────────────
+function liftPen() {
+  lastX = null; lastY = null;
+  isDrawing = false;
+}
+
+function drawPoint(x, y) {
+  drawCtx.globalAlpha = brushOpacityVal;
+  drawCtx.strokeStyle = drawColor;
+  drawCtx.lineWidth = brushSize;
+  drawCtx.lineCap = 'round';
+  drawCtx.lineJoin = 'round';
+
+  if (lastX === null) {
+    // Start new stroke — just record position, don't draw a dot
+    lastX = x; lastY = y;
+    return;
+  }
+
+  // Skip micro-jitter (< 1.5px movement)
+  const dist = Math.hypot(x - lastX, y - lastY);
+  if (dist < 1.5) return;
+
+  drawCtx.beginPath();
+  drawCtx.moveTo(lastX, lastY);
+  drawCtx.lineTo(x, y);
+  drawCtx.stroke();
+
+  lastX = x; lastY = y;
+}
+
+function clearCanvas() {
+  drawCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
+  liftPen();
+  showToast('Canvas cleared');
+}
+
+function saveCanvas() {
+  // Composite bg + drawing
+  const offscreen = document.createElement('canvas');
+  offscreen.width = bgCanvas.width;
+  offscreen.height = bgCanvas.height;
+  const offCtx = offscreen.getContext('2d');
+  offCtx.drawImage(bgCanvas, 0, 0);
+  offCtx.drawImage(drawCanvas, 0, 0);
+
+  const link = document.createElement('a');
+  link.download = 'fingertrace-' + Date.now() + '.png';
+  link.href = offscreen.toDataURL();
+  link.click();
+  showToast('Saved!');
+}
+
+// ─── HAND DETECTION ───────────────────────────────────────────────────────────
+function dist2D(a, b) {
+  return Math.hypot(a.x - b.x, a.y - b.y);
+}
+
+// Returns true if a finger tip is RAISED (tip higher than its base knuckle)
+// "higher" in image coords = smaller Y
+function isFingerUp(tip, pip) {
+  return tip.y < pip.y;
+}
+
+function onHandResults(results) {
+  landmarkCtx.clearRect(0, 0, landmarkCanvas.width, landmarkCanvas.height);
+
+  if (!results.multiHandLandmarks || results.multiHandLandmarks.length === 0) {
+    confirmedDrawing = false;
+    drawFrameCount = 0; noDrawFrameCount = 0;
+    liftPen();
+    xBuf.length = 0; yBuf.length = 0;
+    cursorDot.style.opacity = '0';
+    modeBadge.className = 'mode-badge';
+    return;
+  }
+
+  const lm = results.multiHandLandmarks[0];
+
+  // ── Landmarks (MediaPipe hand model) ──
+  // Fingertips:  4=thumb, 8=index, 12=middle, 16=ring, 20=pinky
+  // PIP joints:  6=index, 10=middle, 14=ring, 18=pinky
+  // MCP joints:  5=index, 9=middle, 13=ring, 17=pinky
+  const wrist      = lm[0];
+  const thumbTip   = lm[4];
+  const indexTip   = lm[8],  indexPIP = lm[6],  indexMCP = lm[5];
+  const middleTip  = lm[12], middlePIP= lm[10];
+  const ringTip    = lm[16], ringPIP  = lm[14];
+  const pinkyTip   = lm[20], pinkyPIP = lm[18];
+
+  const handSpan = dist2D(wrist, lm[9]); // wrist to middle-MCP
+
+  // ── Finger state ──
+  const indexUp  = isFingerUp(indexTip,  indexPIP);
+  const middleUp = isFingerUp(middleTip, middlePIP);
+  const ringUp   = isFingerUp(ringTip,   ringPIP);
+  const pinkyUp  = isFingerUp(pinkyTip,  pinkyPIP);
+
+  // How extended is the index finger? (tip vs MCP distance, normalised)
+  const indexExtension = dist2D(indexTip, indexMCP) / handSpan;
+  const indexWellUp = indexUp && indexExtension > 0.7;
+
+  // Pinch: thumb tip close to index tip (pen lift)
+  const pinchDist = dist2D(thumbTip, indexTip);
+  const pinching  = pinchDist < handSpan * 0.38;
+
+  // ── DRAW only when: index is clearly extended AND other fingers are curled ──
+  // This distinguishes a pointing gesture from an open palm / peace sign
+  const othersCurled = !middleUp && !ringUp; // middle + ring must be down
+  const rawShouldDraw = indexWellUp && othersCurled && !pinching;
+
+  // ── Debounce: require DEBOUNCE_FRAMES consecutive same-state frames ──
+  if (rawShouldDraw) {
+    drawFrameCount++;
+    noDrawFrameCount = 0;
+  } else {
+    noDrawFrameCount++;
+    drawFrameCount = 0;
+  }
+
+  if (drawFrameCount >= DEBOUNCE_FRAMES)   confirmedDrawing = true;
+  if (noDrawFrameCount >= DEBOUNCE_FRAMES) { confirmedDrawing = false; liftPen(); }
+
+  // ── Smooth the finger tip position ──
+  const cw = drawCanvas.width, ch = drawCanvas.height;
+  const rawX = (1 - indexTip.x) * cw;
+  const rawY = indexTip.y * ch;
+  const [sx, sy] = smoothedPos(rawX, rawY);
+
+  // Update cursor dot (always follows finger)
+  cursorDot.style.left  = sx + 'px';
+  cursorDot.style.top   = sy + 'px';
+  cursorDot.style.opacity = '1';
+  cursorDot.style.borderColor = confirmedDrawing ? drawColor : '#ff6644';
+
+  // Badge
+  if (confirmedDrawing) {
+    modeBadge.className = 'mode-badge drawing';
+    modeBadge.textContent = '● Drawing';
+    drawPoint(sx, sy);
+  } else {
+    modeBadge.className = 'mode-badge paused';
+    if (pinching)         modeBadge.textContent = '○ Pinched — pen up';
+    else if (!indexWellUp) modeBadge.textContent = '○ Raise index finger';
+    else                  modeBadge.textContent = '○ Curl other fingers';
+  }
+
+  // Draw landmarks on preview overlay
+  if (showPreview) {
+    const lw = landmarkCanvas.width;
+    const lh = landmarkCanvas.height;
+
+    const connections = [
+      [0,1],[1,2],[2,3],[3,4],
+      [0,5],[5,6],[6,7],[7,8],
+      [5,9],[9,10],[10,11],[11,12],
+      [9,13],[13,14],[14,15],[15,16],
+      [13,17],[17,18],[18,19],[19,20],
+      [0,17]
+    ];
+
+    landmarkCtx.strokeStyle = 'rgba(0,255,204,0.45)';
+    landmarkCtx.lineWidth = 1.2;
+    for (const [a, b] of connections) {
+      const pa = lm[a], pb = lm[b];
+      landmarkCtx.beginPath();
+      landmarkCtx.moveTo((1 - pa.x) * lw, pa.y * lh);
+      landmarkCtx.lineTo((1 - pb.x) * lw, pb.y * lh);
+      landmarkCtx.stroke();
+    }
+
+    // Highlight index tip
+    landmarkCtx.fillStyle = confirmedDrawing ? drawColor : '#ff6644';
+    landmarkCtx.beginPath();
+    landmarkCtx.arc((1 - indexTip.x) * lw, indexTip.y * lh, 5, 0, Math.PI * 2);
+    landmarkCtx.fill();
+
+    // Small dots on all joints
+    landmarkCtx.fillStyle = 'rgba(255,255,255,0.5)';
+    for (let i = 0; i < lm.length; i++) {
+      if (i === 8) continue;
+      landmarkCtx.beginPath();
+      landmarkCtx.arc((1 - lm[i].x) * lw, lm[i].y * lh, 2, 0, Math.PI * 2);
+      landmarkCtx.fill();
+    }
+  }
+}
+
+// ─── CAMERA ──────────────────────────────────────────────────────────────────
+async function startCamera() {
+  document.getElementById('loadingOverlay').classList.remove('hidden');
+  document.getElementById('loadingText').textContent = 'Requesting camera…';
+
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { width: 640, height: 480, facingMode: 'user' },
+      audio: false
+    });
+
+    video.srcObject = stream;
+    await new Promise(r => video.onloadedmetadata = r);
+
+    document.getElementById('loadingText').textContent = 'Loading hand model…';
+
+    hands = new Hands({
+      locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+    });
+
+    hands.setOptions({
+      maxNumHands: 1,
+      modelComplexity: 1,
+      minDetectionConfidence: 0.7,
+      minTrackingConfidence: 0.6
+    });
+
+    hands.onResults(onHandResults);
+
+    camera = new Camera(video, {
+      onFrame: async () => {
+        await hands.send({ image: video });
+      },
+      width: 640, height: 480
+    });
+
+    await camera.start();
+
+    // Show UI
+    isRunning = true;
+    document.getElementById('startBtn').style.display = 'none';
+    document.getElementById('stopBtn').style.display = '';
+    document.getElementById('statusDot').classList.add('active');
+    document.getElementById('statusText').textContent = 'TRACKING';
+    document.getElementById('instructions').classList.add('hidden');
+    document.getElementById('loadingOverlay').classList.add('hidden');
+
+    showToast('Hand tracking active!');
+
+  } catch (err) {
+    document.getElementById('loadingOverlay').classList.add('hidden');
+    showToast('Camera error: ' + (err.message || err));
+    console.error(err);
+  }
+}
+
+function stopCamera() {
+  if (camera) { camera.stop(); camera = null; }
+  if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+  if (hands) { hands.close(); hands = null; }
+
+  video.classList.remove('visible');
+  landmarkCanvas.classList.remove('visible');
+  isRunning = false;
+  confirmedDrawing = false;
+  drawFrameCount = 0; noDrawFrameCount = 0;
+  xBuf.length = 0; yBuf.length = 0;
+  liftPen();
+  cursorDot.style.opacity = '0';
+  modeBadge.className = 'mode-badge';
+
+  document.getElementById('startBtn').style.display = '';
+  document.getElementById('stopBtn').style.display = 'none';
+  document.getElementById('statusDot').classList.remove('active');
+  document.getElementById('statusText').textContent = 'CAMERA OFF';
+  document.getElementById('instructions').classList.remove('hidden');
+  showToast('Camera stopped');
+}
+
+function togglePreview() {
+  showPreview = !showPreview;
+  video.classList.toggle('visible', showPreview);
+  landmarkCanvas.classList.toggle('visible', showPreview);
+
+  // Sync landmark canvas size to video display size
+  if (showPreview) {
+    landmarkCanvas.width = 180;
+    landmarkCanvas.height = 135;
+  }
+}
+
+// ─── TOAST ────────────────────────────────────────────────────────────────────
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+// ─── MOUSE FALLBACK (for testing without camera) ──────────────────────────────
+let mouseDown = false;
+drawCanvas.addEventListener('mousedown', e => {
+  if (isRunning) return;
+  mouseDown = true;
+  liftPen();
+});
+drawCanvas.addEventListener('mousemove', e => {
+  if (!mouseDown || isRunning) return;
+  const r = drawCanvas.getBoundingClientRect();
+  drawPoint(e.clientX - r.left, e.clientY - r.top);
+});
+drawCanvas.addEventListener('mouseup',    () => { mouseDown = false; liftPen(); });
+drawCanvas.addEventListener('mouseleave', () => { mouseDown = false; liftPen(); });
+
+// Touch fallback
+drawCanvas.addEventListener('touchstart', e => {
+  if (isRunning) return;
+  e.preventDefault(); liftPen();
+}, { passive: false });
+drawCanvas.addEventListener('touchmove', e => {
+  if (isRunning) return;
+  e.preventDefault();
+  const t = e.touches[0];
+  const r = drawCanvas.getBoundingClientRect();
+  drawPoint(t.clientX - r.left, t.clientY - r.top);
+}, { passive: false });
+drawCanvas.addEventListener('touchend', () => { liftPen(); });
+</script>
+</body>
+</html>
